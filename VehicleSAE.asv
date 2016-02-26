@@ -1,0 +1,101 @@
+clc; clear all; close all;
+
+% implement multi-layer autoencoder with a softmax classifier
+
+inputSize = 32*32;
+numLabels = 2;
+hiddenSizeL1 = 256;
+hiddenSizeL2 = 64;
+
+sparsityParam = 0.1;
+lambda = 3e-3;
+beta = 3;
+
+% Step 1: load data
+
+pos_size = 8764;
+neg_size = 4000;
+
+% pos = zeros(inputSize,pos_size);
+% neg = zeros(inputSize,neg_size);
+% 
+% for i = 0:pos_size-1
+%     image_name = strcat('pos/',num2str(i),'.png');
+%     img = imread(image_name);
+%     img2 = im2double(img);
+%     pos(:,i+1) = reshape(img2,[inputSize,1]);
+% end
+% 
+% for i = 1:neg_size
+%     image_name = strcat('neg/',num2str(i),'.png');
+%     img = imread(image_name);
+%     img2 = im2double(img);
+%     neg(:,i) = reshape(img2,[inputSize,1]);
+% end
+
+load pos.mat
+load neg.mat
+
+%label: vehicle-1 non-2
+
+idx_p = randperm(pos_size);
+idx_n = randperm(neg_size);
+
+unlabeledData = pos(:,idx_p(1:5000));
+unlabeledData = normalization(unlabeledData);
+trainData = [pos(:,idx_p(5001:8000)) neg(:,idx_n(1:3000))];
+trainData = normalization(trainData);
+trainLabel = [ones(1,3000) zeros(1,3000)+2];
+testData = [pos(:,idx_p(8001:end)) neg(:,idx_n(3001:end))];
+testData = normalization(testData);
+testLabel = [ones(1,764) zeros(1,1000)+2];
+
+save unlabeledData.mat unlabeledData
+save trainData.mat trainData
+save testData.mat testData
+
+% Step 2: Train SAE
+
+sae1Theta = initializeParameters(hiddenSizeL1, inputSize);
+
+addpath minFunc/
+options.Method = 'lbfgs';
+options.maxIter = 400;
+options.display = 'on';
+options.Corr = 10;
+
+[sae1OptTheta, cost] = minFunc( @(p) sparseAutoencoderCost(p, ...
+                                   inputSize, hiddenSizeL1, ...
+                                   lambda, sparsityParam, ...
+                                   beta, unlabeledData), ...
+                                   sae1Theta, options);
+save 'sae1OptTheta.mat' sae1OptTheta
+
+[sae1Features] = feedForwardAutoencoder(sae1OptTheta,hiddenSizeL1, ...
+                                        inputSize,unlabeledData);
+                              
+sae2Theta = initializeParameters(hiddenSizeL2,hiddenSizeL1);
+
+addpath minFunc/
+options.Method = 'lbfgs';
+options.maxIter = 400;
+options.display = 'on';
+[sae2OptTheta, cost] = minFunc( @(p) sparseAutoencoderCost(p, ...
+                                   hiddenSizeL1, hiddenSizeL2, ...
+                                   lambda, sparsityParam, ...
+                                   beta, sae1Features), ...
+                                   sae2Theta, options);
+                               
+save 'sae2OptTheta.mat' sae2OptTheta
+
+% Step 3: Train the softmax classifier
+
+[trainFeatures] = feedForwardAutoencoder(sae1OptTheta, hiddenSizeL1, ...
+                                         inputSize,trainData);
+                                  
+[sae2Features] = feedForwardAutoencoder(sae2OptTheta, hiddenSizeL2, ...
+                                        hiddenSizeL1, trainFeatures);
+
+saeSoftmaxTheta = 0.005 * randn()
+
+
