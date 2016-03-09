@@ -4,8 +4,8 @@ clc; clear all; close all;
 
 inputSize = 32*32;
 numLabels = 2;
-hiddenSizeL1 = 64;
-hiddenSizeL2 = 16;
+hiddenSizeL1 = 512;
+hiddenSizeL2 = 512;
 
 sparsityParam = 0.1;
 lambda = 3e-3;
@@ -128,7 +128,9 @@ options.display = 'on';
 [stackedAEOptTheta, cost] = minFunc( @(p) stackedAECost(p, inputSize, hiddenSizeL2, ...
                                               numLabels, netconfig, lambda, ...
                                               trainData, trainLabel), stackedAETheta, options);
-                        
+
+                                          
+save 'stackedAEOptTheta.mat' stackedAEOptTheta
 % Step 5: Test the classification accuracy
 
 [testFeatures] = feedForwardAutoencoder(sae1OptTheta, hiddenSizeL1, ...
